@@ -24,7 +24,7 @@ Diseñar un portafolio de inversión que **supere al benchmark** durante el peri
 | 27/05/2026 (mié) | Rebalanceo 3 (precios cierre 27/05) |
 | 10/06/2026 (mié) | Evaluación final de performance |
 
-Enviar mail a **gmoltrasio@gmail.com** el día siguiente de cada clase, antes de apertura de mercado US.
+Enviar mail día siguiente, antes de apertura de mercado US.
 
 ## Restricciones
 - Solo se pueden usar los 4 activos: **GLD, SPY, Cash, TLT**
