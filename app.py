@@ -33,6 +33,10 @@ def descargar_precios(inicio, fin):
     return precios
 
 
+# --- Inicializar pesos en session_state para persistencia ---
+if "pesos_guardados" not in st.session_state:
+    st.session_state.pesos_guardados = {}
+
 # --- Sidebar: configurar pesos por fecha de rebalanceo ---
 st.sidebar.header("Configuración de Cartera")
 st.sidebar.markdown("Definí los pesos (%) para cada fecha de rebalanceo.")
@@ -45,11 +49,15 @@ for i, fecha in enumerate(FECHAS_REBALANCEO):
     cols = st.sidebar.columns(4)
     pesos = {}
     for j, activo in enumerate(ACTIVOS):
-        default = 25.0
+        # Recuperar valor guardado o default 25%
+        cache_key = f"{activo}_{i}"
+        default = st.session_state.pesos_guardados.get(cache_key, 25.0)
         pesos[activo] = cols[j].number_input(
             activo, min_value=0.0, max_value=100.0, value=default,
             step=1.0, key=f"{activo}_{i}"
         )
+        # Guardar en session_state
+        st.session_state.pesos_guardados[cache_key] = pesos[activo]
     # Cash es el residuo
     cash = 100.0 - sum(pesos.values())
     cash = max(0.0, round(cash, 2))
@@ -235,6 +243,42 @@ with col2:
     else:
         st.info("Empate con el benchmark")
 
+# --- Evolución diaria detallada ---
+st.markdown("---")
+st.subheader("Evolución Diaria")
+
+evolucion_data = []
+for idx in range(len(portfolio_val)):
+    fecha = portfolio_val.index[idx]
+    val_p = portfolio_val.iloc[idx]
+    val_b = benchmark_val.iloc[idx] if idx < len(benchmark_val) else np.nan
+    evolucion_data.append({
+        "Fecha": fecha.strftime("%d/%m/%Y"),
+        "Portfolio": round(val_p, 2),
+        "Var % Portfolio": round((val_p / portfolio_val.iloc[0] - 1) * 100, 2),
+        "Benchmark": round(val_b, 2) if not np.isnan(val_b) else "-",
+        "Var % Benchmark": round((val_b / benchmark_val.iloc[0] - 1) * 100, 2) if not np.isnan(val_b) else "-",
+        "Diferencia": round(val_p - val_b, 2) if not np.isnan(val_b) else "-",
+    })
+
+df_evolucion = pd.DataFrame(evolucion_data)
+
+# Resumen: apertura, máximo, mínimo, último
+col_res1, col_res2, col_res3, col_res4 = st.columns(4)
+with col_res1:
+    st.metric("Valor Inicial", f"{portfolio_val.iloc[0]:.2f}")
+with col_res2:
+    st.metric("Máximo", f"{portfolio_val.max():.2f}",
+              delta=f"{(portfolio_val.max() / portfolio_val.iloc[0] - 1) * 100:+.2f}%")
+with col_res3:
+    st.metric("Mínimo", f"{portfolio_val.min():.2f}",
+              delta=f"{(portfolio_val.min() / portfolio_val.iloc[0] - 1) * 100:+.2f}%")
+with col_res4:
+    st.metric("Último / Cierre", f"{portfolio_val.iloc[-1]:.2f}",
+              delta=f"{(portfolio_val.iloc[-1] / portfolio_val.iloc[0] - 1) * 100:+.2f}%")
+
+st.dataframe(df_evolucion, use_container_width=True, hide_index=True)
+
 # --- Tabla de pesos ---
 st.markdown("---")
 st.subheader("Resumen de Pesos por Fecha")
@@ -260,29 +304,3 @@ if not precios.empty:
     for i, activo in enumerate(ACTIVOS):
         cols_precio[i].metric(activo, f"${ultimo[activo]:.2f}")
 
-# --- Texto para el mail ---
-st.markdown("---")
-st.subheader("Texto para el mail")
-fecha_actual = FECHAS_REBALANCEO[0]  # default primera fecha
-fecha_sel = st.selectbox("Fecha de entrega", [f.strftime("%d/%m/%Y") for f in FECHAS_REBALANCEO])
-for f in FECHAS_REBALANCEO:
-    if f.strftime("%d/%m/%Y") == fecha_sel:
-        fecha_actual = f
-        break
-
-p = pesos_por_fecha[fecha_actual]
-texto_mail = f"""Buenas,
-
-Mi posicionamiento de cartera para la fecha {fecha_actual.strftime('%d/%m/%Y')}:
-
-- GLD: {p['GLD']*100:.0f}%
-- SPY: {p['SPY']*100:.0f}%
-- TLT: {p['TLT']*100:.0f}%
-- Cash: {p['Cash']*100:.0f}%
-
-Justificación: [completar]
-
-Saludos,
-Agustín González"""
-
-st.code(texto_mail, language=None)
