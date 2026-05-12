@@ -20,6 +20,13 @@ FECHAS_REBALANCEO = [
     date(2026, 5, 27),
 ]
 
+# Carteras ya enviadas al profesor (precargadas como default)
+CARTERAS_PRECARGADAS = {
+    0: {"GLD": 13.0, "SPY": 36.0, "TLT": 48.0},  # Inicio - 16/04
+    1: {"GLD": 17.0, "SPY": 72.0, "TLT": 11.0},  # Rebalanceo 1 - 30/04
+    2: {"GLD": 11.0, "SPY": 83.0, "TLT": 6.0},   # Rebalanceo 2 - 06/05
+}
+
 # --- Descarga de precios ---
 @st.cache_data(ttl=3600)
 def descargar_precios(inicio, fin):
@@ -49,9 +56,10 @@ for i, fecha in enumerate(FECHAS_REBALANCEO):
     cols = st.sidebar.columns(4)
     pesos = {}
     for j, activo in enumerate(ACTIVOS):
-        # Recuperar valor guardado o default 25%
+        # Recuperar valor guardado o usar precarga (carteras ya enviadas) / 25%
         cache_key = f"{activo}_{i}"
-        default = st.session_state.pesos_guardados.get(cache_key, 25.0)
+        precarga = CARTERAS_PRECARGADAS.get(i, {}).get(activo, 25.0)
+        default = st.session_state.pesos_guardados.get(cache_key, precarga)
         pesos[activo] = cols[j].number_input(
             activo, min_value=0.0, max_value=100.0, value=default,
             step=1.0, key=f"{activo}_{i}"
